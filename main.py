@@ -1,6 +1,3 @@
-# requirements:
-# fastapi uvicorn sqlalchemy passlib[bcrypt] pyjwt python-dotenv slowapi
-
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -29,9 +26,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ------------------------------
-# Загрузка переменных окружения
-# ------------------------------
 load_dotenv()
 MODE = os.getenv("MODE", "DEV").upper()
 DOCS_USER = os.getenv("DOCS_USER", "admin")
@@ -43,17 +37,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 if MODE not in ("DEV", "PROD"):
     raise ValueError("MODE must be either DEV or PROD")
 
-# ------------------------------
-# Настройка БД (SQLite)
-# ------------------------------
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ------------------------------
-# Модели SQLAlchemy
-# ------------------------------
 class UserDB(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -70,9 +58,6 @@ class TodoDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# ------------------------------
-# Pydantic модели
-# ------------------------------
 class UserBase(BaseModel):
     username: str
 
@@ -121,9 +106,6 @@ class TodoResponse(TodoBase):
     class Config:
         from_attributes = True
 
-# ------------------------------
-# Утилиты безопасности
-# ------------------------------
 security_basic = HTTPBasic()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
@@ -170,9 +152,6 @@ def decode_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-# ------------------------------
-# Зависимости для работы с БД
-# ------------------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -237,9 +216,7 @@ def require_role(required_roles: List[str]):
         return current_user
     return role_checker
 
-# ------------------------------
-# Инициализация FastAPI и Rate Limiter
-# ------------------------------
+
 app = FastAPI(
     title="Combined FastAPI App",
     docs_url=None,
@@ -250,9 +227,7 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ------------------------------
-# Управление документацией (6.3)
-# ------------------------------
+
 def docs_auth_dependency(credentials: HTTPBasicCredentials = Depends(HTTPBasic())):
     correct_username = secrets.compare_digest(credentials.username, DOCS_USER)
     correct_password = secrets.compare_digest(credentials.password, DOCS_PASSWORD)
@@ -278,9 +253,6 @@ else:
     async def docs_not_found():
         raise HTTPException(status_code=404, detail="Not Found")
 
-# ------------------------------
-# Эндпоинты
-# ------------------------------
 
 @app.get("/basic-secret")
 def get_secret_with_basic_auth(user: UserDB = Depends(auth_user_basic)):
